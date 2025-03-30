@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INDEX</title>
+</head>
+<body>
+    <h1>Add stock</h1>
+    <form action="/add-watch" method="post">
+        <label for="email">Email:</label>
+        <input type="email" name="email" required id="email">
+
+        <label for="stock">stock symbol:</label>
+        <input type="text" name="symbol" required id="stock">
+
+        <button type="submit">Add</button>
+    </form>
+
+    <% if(locals.message) { %>
+        <p><%= message %></p>
+    <% } %>
+</body>
+</html>
