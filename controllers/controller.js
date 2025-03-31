@@ -31,7 +31,7 @@ async function addToWatch(req, res) {
             message: message
         });
     }
-}00
+}
 
 module.exports = {
     getList,
