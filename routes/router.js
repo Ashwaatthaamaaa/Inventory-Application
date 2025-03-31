@@ -12,6 +12,7 @@ router.get('/logout', controller.handleLogout);
 // Protected routes
 router.get('/watchlist', requireLogin, controller.getWatchlist);
 router.post('/add-symbol', requireLogin, controller.addToWatchlist);
+router.post('/delete-symbol', requireLogin, controller.deleteFromWatchlist);
 
 module.exports = router;
 
