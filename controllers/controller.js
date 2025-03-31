@@ -1,4 +1,4 @@
-const { addUser, verifyUser, addSymbol, getWatchlist } = require('../db/queries');
+const { addUser, verifyUser, addSymbol, fetchWatchlist } = require('../db/queries');
 const { getStockPrice } = require('../utils/api');
 
 // Login page
@@ -46,7 +46,7 @@ function handleLogout(req, res) {
 // Protected watchlist page
 async function getWatchlist(req, res) {
     try {
-        const watchlist = await getWatchlist(req.session.user.id);
+        const watchlist = await fetchWatchlist(req.session.user.id);
         res.render('watchlist', { 
             watchlist,
             user: req.session.user,
@@ -72,7 +72,7 @@ async function addToWatchlist(req, res) {
         if (stockData) {
             await addSymbol(req.session.user.id, symbol);
             
-            const watchlist = await getWatchlist(req.session.user.id);
+            const watchlist = await fetchWatchlist(req.session.user.id);
             res.render('watchlist', { 
                 message: `Added ${symbol} to watchlist`,
                 watchlist,
