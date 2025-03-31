@@ -1,14 +1,10 @@
 const pool = require('./pool');
 
-
-
-
-async function addUserAndSymbol(email, symbol) {
+async function addUser(email) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Get/Create User
         const userRes = await client.query(`
             INSERT INTO users (email)
             VALUES ($1)
@@ -16,20 +12,41 @@ async function addUserAndSymbol(email, symbol) {
             RETURNING id
         `, [email]);
 
-        // Handle existing user
-        let userId;
-        if (userRes.rows.length === 0) {
-            // User already exists - get their ID
-            const existingUser = await client.query(
-                'SELECT id FROM users WHERE email = $1', 
-                [email]
-            );
-            userId = existingUser.rows[0].id;
-        } else {
-            userId = userRes.rows[0].id;
-        }
+        await client.query('COMMIT');
+        return userRes.rows[0]?.id || null;
 
-        // 2. Insert into Watchlist with Duplicate Check
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error adding user:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+async function verifyUser(email) {
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            'SELECT id FROM users WHERE email = $1',
+            [email]
+        );
+        return result.rows[0]?.id || null;
+    } catch (err) {
+        console.error('Error verifying user:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+async function addSymbol(userId, symbol) {
+    if (!userId) throw new Error('User must be logged in');
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
         const watchlistRes = await client.query(`
             INSERT INTO watchlist (user_id, stock_symbol)
             VALUES ($1, $2)
@@ -39,35 +56,44 @@ async function addUserAndSymbol(email, symbol) {
         `, [userId, symbol]);
 
         if (watchlistRes.rowCount === 0) {
-            throw new Error('DUPLICATE_SYMBOL'); // Custom error code
+            throw new Error('DUPLICATE_SYMBOL');
         }
 
         await client.query('COMMIT');
-        return { success: true, userId };
+        return true;
 
     } catch (err) {
         await client.query('ROLLBACK');
-        
-        // Handle specific error cases
-        if (err.code === '23505') { // PostgreSQL unique violation
-            if (err.constraint === 'users_email_key') {
-                throw new Error('DUPLICATE_EMAIL');
-            }
-            if (err.constraint === 'watchlist_user_id_stock_symbol_key') {
-                throw new Error('DUPLICATE_SYMBOL');
-            }
-        }
-        
-        console.error('Transaction error:', err);
-        throw err; // Re-throw other errors
+        console.error('Error adding symbol:', err);
+        throw err;
     } finally {
         client.release();
     }
 }
 
+async function getWatchlist(userId) {
+    if (!userId) throw new Error('User must be logged in');
 
+    const client = await pool.connect();
+    try {
+        const result = await client.query(`
+            SELECT stock_symbol 
+            FROM watchlist 
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+        `, [userId]);
+        return result.rows;
+    } catch (err) {
+        console.error('Error fetching watchlist:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
 
 module.exports = {
-    addUserAndSymbol
-}
-;
+    addUser,
+    verifyUser,
+    addSymbol,
+    getWatchlist
+};
