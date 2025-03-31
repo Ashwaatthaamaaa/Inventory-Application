@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Watchlist</title>
+</head>
+<body>
+    <h1>Welcome, <%= user.email %></h1>
+    <a href="/logout">Logout</a>
+    
+    <form action="/add-symbol" method="post">
+        <input type="text" name="symbol" required placeholder="Enter stock symbol">
+        <button type="submit">Add to Watchlist</button>
+    </form>
+
+    <% if (watchlist && watchlist.length > 0) { %>
+        <ul>
+            <% watchlist.forEach(item => { %>
+                <li><%= item.stock_symbol %></li>
+            <% }); %>
+        </ul>
+    <% } else { %>
+        <p>No stocks in watchlist</p>
+    <% } %>
+
+    <% if (message) { %>
+        <p><%= message %></p>
+    <% } %>
+</body>
+</html> 
