@@ -1,39 +1,103 @@
-const { addUserAndSymbol } = require('../db/queries');
+const { addUser, verifyUser, addSymbol, getWatchlist } = require('../db/queries');
 const { getStockPrice } = require('../utils/api');
 
-// Render the main page
-function getList(req, res) {
-    res.render('index', { message: null });
+// Login page
+function getLoginPage(req, res) {
+    if (req.session.user) {
+        return res.redirect('/watchlist');
+    }
+    res.render('login', { message: null });
 }
 
-// Handle form submission
-// controllers/controller.js (Improved Error Handling)
-async function addToWatch(req, res) {
+// Handle login
+async function handleLogin(req, res) {
     try {
-        const { email, symbol } = req.body;
-        if(!email || !symbol){
-            throw new Error("Email and symbol must be provided");
+        const { email } = req.body;
+        let userId = await verifyUser(email);
+        
+        if (!userId) {
+            userId = await addUser(email);
         }
-        const stockData = await getStockPrice(symbol);
-        if(!stockData.data[symbol]){
-            throw new Error("Stock symbol not found");
+        
+        // Set session data
+        req.session.user = {
+            id: userId,
+            email: email
+        };
+        
+        res.redirect('/watchlist');
+    } catch (error) {
+        res.render('login', { 
+            message: `Error: ${error.message}` 
+        });
+    }
+}
+
+// Logout
+function handleLogout(req, res) {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error destroying session:', err);
         }
-        await addUserAndSymbol(email, symbol);
-        res.render('index', { 
-            message: `Successfully added ${symbol} to watchlist for ${email}` 
+        res.redirect('/login');
+    });
+}
+
+// Protected watchlist page
+async function getWatchlist(req, res) {
+    try {
+        const watchlist = await getWatchlist(req.session.user.id);
+        res.render('watchlist', { 
+            watchlist,
+            user: req.session.user,
+            message: null 
         });
     } catch (error) {
-        let message = `Error: ${error.message}`;
-        if(error.message === "DUPLICATE_SYMBOL"){
-            message = "Error: This stock symbol is already in your watchlist";
+        res.render('watchlist', { 
+            message: `Error: ${error.message}`,
+            watchlist: [],
+            user: req.session.user
+        });
+    }
+}
+
+// Protected add symbol route
+async function addToWatchlist(req, res) {
+    try {
+        const { symbol } = req.body;
+        
+        // Verify stock exists
+        const stockData = await getStockPrice(symbol);
+        
+        if (stockData) {
+            await addSymbol(req.session.user.id, symbol);
+            
+            const watchlist = await getWatchlist(req.session.user.id);
+            res.render('watchlist', { 
+                message: `Added ${symbol} to watchlist`,
+                watchlist,
+                user: req.session.user
+            });
+        } else {
+            res.render('watchlist', { 
+                message: `Error: Stock symbol ${symbol} not found`,
+                watchlist: [],
+                user: req.session.user
+            });
         }
-        res.render('index', { 
-            message: message
+    } catch (error) {
+        res.render('watchlist', { 
+            message: `Error: ${error.message}`,
+            watchlist: [],
+            user: req.session.user
         });
     }
 }
 
 module.exports = {
-    getList,
-    addToWatch
+    getLoginPage,
+    handleLogin,
+    handleLogout,
+    getWatchlist,
+    addToWatchlist
 };
