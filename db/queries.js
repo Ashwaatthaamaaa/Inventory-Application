@@ -71,7 +71,7 @@ async function addSymbol(userId, symbol) {
     }
 }
 
-async function getWatchlist(userId) {
+async function fetchWatchlist(userId) {
     if (!userId) throw new Error('User must be logged in');
 
     const client = await pool.connect();
@@ -80,7 +80,6 @@ async function getWatchlist(userId) {
             SELECT stock_symbol 
             FROM watchlist 
             WHERE user_id = $1
-            ORDER BY created_at DESC
         `, [userId]);
         return result.rows;
     } catch (err) {
@@ -95,5 +94,5 @@ module.exports = {
     addUser,
     verifyUser,
     addSymbol,
-    getWatchlist
+    fetchWatchlist
 };
