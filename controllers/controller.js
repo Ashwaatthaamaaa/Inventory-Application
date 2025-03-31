@@ -1,4 +1,4 @@
-const { addUser, verifyUser, addSymbol, fetchWatchlist } = require('../db/queries');
+const { addUser, verifyUser, addSymbol, fetchWatchlist,deleteSymbol } = require('../db/queries');
 const { getStockPrice } = require('../utils/api');
 
 // Login page
@@ -94,10 +94,39 @@ async function addToWatchlist(req, res) {
     }
 }
 
+async function deleteFromWatchlist(req,res) {
+
+    try{
+        const {symbol} = req.body;
+
+        await deleteSymbol(req.session.user.id,symbol);
+
+        const watchlist = await fetchWatchlist(req.session.user.id);
+
+        res.render('watchlist',{
+            message: `Successfully deleted ${symbol} from watchlist`,
+            watchlist,
+            user:req.session.user
+            }
+        )
+    }catch(err){
+        const watchlist = await fetchWatchlist(req.session.user.id);
+
+        res.render('watchlist',{
+            message: `Error: ${error.message}`,
+            watchlist,
+            user:req.session.user
+            }
+        )
+    }
+    
+}
+
 module.exports = {
     getLoginPage,
     handleLogin,
     handleLogout,
     getWatchlist,
-    addToWatchlist
+    addToWatchlist,
+    deleteFromWatchlist
 };
