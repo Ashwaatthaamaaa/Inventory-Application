@@ -1,4 +1,4 @@
-const { addUser ,addSymbol} = require('../db/queries');
+const {  addUserAndSymbol} = require('../db/queries');
 const { getStockPrice } = require('../utils/api');  // Update this line
 // ... rest of the controller code
 // Render the main page
@@ -12,13 +12,12 @@ async function addToWatch(req, res) {
         const { email, symbol } = req.body;
         
         // First, add user to database
-        await addUser(email);
         
         // Then check if stock exists via API
         const stockData = await getStockPrice(symbol);
-        
+        console.log(stockData);
         if(stockData){
-            await addSymbol(email,symbol);
+            await addUserAndSymbol(email,symbol);
         }
         res.render('index', { 
             message: `Successfully added ${symbol} to watchlist for ${email}` 
