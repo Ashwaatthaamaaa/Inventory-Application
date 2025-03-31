@@ -7,30 +7,31 @@ function getList(req, res) {
 }
 
 // Handle form submission
+// controllers/controller.js (Improved Error Handling)
 async function addToWatch(req, res) {
     try {
         const { email, symbol } = req.body;
-        
-        // First verify the stock exists via API
-        const stockData = await getStockPrice(symbol);
-        
-        // If stock exists, add to database using the combined function
-        if (stockData) {
-            await addUserAndSymbol(email, symbol);
-            res.render('index', { 
-                message: `Successfully added ${symbol} to watchlist for ${email}` 
-            });
-        } else {
-            res.render('index', { 
-                message: `Error: Stock symbol ${symbol} not found` 
-            });
+        if(!email || !symbol){
+            throw new Error("Email and symbol must be provided");
         }
-    } catch (error) {
+        const stockData = await getStockPrice(symbol);
+        if(!stockData.data[symbol]){
+            throw new Error("Stock symbol not found");
+        }
+        await addUserAndSymbol(email, symbol);
         res.render('index', { 
-            message: `Error: ${error.message}` 
+            message: `Successfully added ${symbol} to watchlist for ${email}` 
+        });
+    } catch (error) {
+        let message = `Error: ${error.message}`;
+        if(error.message === "DUPLICATE_SYMBOL"){
+            message = "Error: This stock symbol is already in your watchlist";
+        }
+        res.render('index', { 
+            message: message
         });
     }
-}
+}00
 
 module.exports = {
     getList,
