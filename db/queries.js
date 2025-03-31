@@ -90,9 +90,32 @@ async function fetchWatchlist(userId) {
     }
 }
 
+async function deleteSymbol(userId,symbol) {
+    const client = await pool.connect();
+    try{
+        await client.query('BEGIN');
+
+        let deletedSymbols = await client.query('DELETE FROM watchlist WHERE user_id=$1 AND stock_symbol=$2 RETURNING id',[userId,symbol]);
+
+        if(deletedSymbols.rowCount == 0) {
+            throw new Error(`CANNOT DELETE ${symbol}`)
+        }
+
+        await client.query('COMMIT');
+    }catch(err){
+        await client.query('ROLLBACK');
+        console.error('Error deleting symbol:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+
+}
+
 module.exports = {
     addUser,
     verifyUser,
     addSymbol,
-    fetchWatchlist
+    fetchWatchlist,
+    deleteSymbol
 };
