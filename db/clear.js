@@ -1,19 +1,32 @@
 #! /usr/bin/env node
 const pool = require('./pool');
 
-const query = `
-TRUNCATE TABLE users RESTART IDENTITY;
-TRUNCATE TABLE watchlist RESTART IDENTITY;
-`;
-
-async function main() {
+async function clearTables() {
+    const client = await pool.connect();
     try {
-        await pool.query(query);
-    } catch(err) {
-        console.error('error populating', err);
+        await client.query('BEGIN');
+        
+        // Either use CASCADE
+        await client.query('TRUNCATE TABLE users, watchlist CASCADE');
+        
+        // OR truncate in correct order (watchlist first, then users)
+        // await client.query('TRUNCATE TABLE watchlist');
+        // await client.query('TRUNCATE TABLE users');
+        
+        await client.query('COMMIT');
+        console.log('Tables cleared successfully');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Error clearing tables:', err);
+        throw err;
     } finally {
-        await pool.end();
+        client.release();
     }
 }
 
-main();
+clearTables()
+    .then(() => process.exit(0))
+    .catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
