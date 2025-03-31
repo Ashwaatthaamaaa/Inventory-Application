@@ -15,7 +15,13 @@
     <% if (watchlist && watchlist.length > 0) { %>
         <ul>
             <% watchlist.forEach(item => { %>
-                <li><%= item.stock_symbol %></li>
+                <li>
+                    <%= item.stock_symbol %>
+                    <form action="/delete-symbol" method="POST" style="display: inline;">
+                        <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
+                        <button type="submit">Delete</button>
+                    </form>
+                </li>
             <% }); %>
         </ul>
     <% } else { %>
