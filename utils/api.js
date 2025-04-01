@@ -24,10 +24,6 @@ async function getStockPrice(symbol) {
                 symbols: symbol
             }
         });
-        console.log(
-            response.data
-            
-        )
         return response.data;
     } catch(err) {
         console.error('error fetching', err);
