@@ -2,31 +2,41 @@
 <html>
 <head>
     <title>Watchlist</title>
+    <link rel="stylesheet" href="/css/reset.css">
+    <link rel="stylesheet" href="/css/watchlist.css">
 </head>
 <body>
     <h1>Welcome, <%= user.email %></h1>
     <a href="/logout">Logout</a>
     
-    <form action="/add-symbol" method="post">
-        <input type="text" name="symbol" required placeholder="Enter stock symbol">
-        <button type="submit">Add to Watchlist</button>
-    </form>
+    <div class="main">
+        <div class="left">
+            <form action="/add-symbol" method="post">
+                <input type="text" name="symbol" required placeholder="Enter stock symbol">
+                <button type="submit">Add to Watchlist</button>
+            </form>
+            <% if (watchlist && watchlist.length > 0) { %>
+                <ul>
+                    <% watchlist.forEach(item => { %>
+                        <li>
+                            <%= item.stock_symbol %>
+                            <form action="/delete-symbol" method="POST" style="display: inline;">
+                                <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
+                                <button type="submit">Delete</button>
+                            </form>
+                        </li>
+                    <% }); %>
+                </ul>
+            <% } else { %>
+                <p>No stocks in watchlist</p>
+            <% } %>
+        
+        </div>
+        <div class="right">
+            <p>hellooo</p>
+        </div>
+    </div>
 
-    <% if (watchlist && watchlist.length > 0) { %>
-        <ul>
-            <% watchlist.forEach(item => { %>
-                <li>
-                    <%= item.stock_symbol %>
-                    <form action="/delete-symbol" method="POST" style="display: inline;">
-                        <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
-                        <button type="submit">Delete</button>
-                    </form>
-                </li>
-            <% }); %>
-        </ul>
-    <% } else { %>
-        <p>No stocks in watchlist</p>
-    <% } %>
 
     <% if (message) { %>
         <p><%= message %></p>
