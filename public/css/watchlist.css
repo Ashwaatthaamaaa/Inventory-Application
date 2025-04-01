@@ -1,0 +1,11 @@
+.main{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+.right{
+    display: flex;
+    text-align: center;
+    align-items: center;
+}
