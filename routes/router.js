@@ -13,6 +13,7 @@ router.get('/logout', controller.handleLogout);
 router.get('/watchlist', requireLogin, controller.getWatchlist);
 router.post('/add-symbol', requireLogin, controller.addToWatchlist);
 router.post('/delete-symbol', requireLogin, controller.deleteFromWatchlist);
+router.get('/api/stock-data', requireLogin, controller.getStockData);
 
 module.exports = router;
 
