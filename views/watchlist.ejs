@@ -1,45 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Watchlist</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Analysis - Watchlist</title>
     <link rel="stylesheet" href="/css/reset.css">
-    <link rel="stylesheet" href="/css/watchlist.css">
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>Welcome, <%= user.email %></h1>
-    <a href="/logout">Logout</a>
-    
-    <div class="main">
-        <div class="left">
-            <form action="/add-symbol" method="post">
-                <input type="text" name="symbol" required placeholder="Enter stock symbol">
-                <button type="submit">Add to Watchlist</button>
-            </form>
-            <% if (watchlist && watchlist.length > 0) { %>
-                <ul>
-                    <% watchlist.forEach(item => { %>
-                        <li>
-                            <%= item.stock_symbol %>
-                            <form action="/delete-symbol" method="POST" style="display: inline;">
-                                <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
-                                <button type="submit">Delete</button>
-                            </form>
-                        </li>
-                    <% }); %>
-                </ul>
-            <% } else { %>
-                <p>No stocks in watchlist</p>
-            <% } %>
+    <div class="container">
+        <header class="header">
+            <h1>TrendHive Stock Analysis</h1>
+            <div>
+                <span>Welcome, <%= user.email %></span>
+                <a href="/logout" class="logout-link">Logout</a>
+            </div>
+        </header>
         
-        </div>
-        <div class="right">
-            <p>hellooo</p>
-        </div>
+        <% if (message) { %>
+            <div class="message <%= message.includes('Error') ? 'message-error' : 'message-success' %>">
+                <%= message %>
+            </div>
+        <% } %>
+        
+        <main class="main-grid">
+            <aside class="watchlist-sidebar">
+                <div class="card">
+                    <div class="watchlist-header">
+                        <h2 class="watchlist-title">Your Watchlist</h2>
+                    </div>
+                    
+                    <form id="add-stock-form" action="/add-symbol" method="post" class="search-form">
+                        <input type="text" name="symbol" required placeholder="Enter stock symbol (e.g. AAPL)" class="search-input">
+                        <button type="submit" class="button" style="width: 100%; margin-top: 0.5rem;">Add to Watchlist</button>
+                    </form>
+                    
+                    <div id="watchlist-container">
+                        <% if (watchlist && watchlist.length > 0) { %>
+                            <% watchlist.forEach(item => { %>
+                                <div class="card stock-card" data-symbol="<%= item.stock_symbol %>">
+                                    <div class="stock-header">
+                                        <span class="stock-symbol"><%= item.stock_symbol %></span>
+                                        <form action="/delete-symbol" method="POST" style="margin-left: auto;">
+                                            <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
+                                            <button type="submit" class="button button-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                                ✕
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            <% }); %>
+                        <% } else { %>
+                            <p>No stocks in watchlist</p>
+                        <% } %>
+                    </div>
+                </div>
+            </aside>
+            
+            <section class="detail-section">
+                <div class="card detail-panel" id="stock-detail">
+                    <div class="stock-detail-header">
+                        <h2 class="stock-detail-title">Select a stock to view details</h2>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
-
-    <% if (message) { %>
-        <p><%= message %></p>
-    <% } %>
+    <script src="/js/stockAnalysis.js"></script>
 </body>
-</html> 
+</html>
