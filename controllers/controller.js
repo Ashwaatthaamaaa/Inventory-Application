@@ -63,6 +63,8 @@ async function getWatchlist(req, res) {
 
 // Protected add symbol route
 async function addToWatchlist(req, res) {
+    let watchlist = await fetchWatchlist(req.session.user.id);
+
     try {
         const { symbol } = req.body;
         
@@ -72,7 +74,7 @@ async function addToWatchlist(req, res) {
         if (stockData) {
             await addSymbol(req.session.user.id, symbol);
             
-            const watchlist = await fetchWatchlist(req.session.user.id);
+            watchlist = await fetchWatchlist(req.session.user.id);
             res.render('watchlist', { 
                 message: `Added ${symbol} to watchlist`,
                 watchlist,
@@ -81,14 +83,14 @@ async function addToWatchlist(req, res) {
         } else {
             res.render('watchlist', { 
                 message: `Error: Stock symbol ${symbol} not found`,
-                watchlist: [],
+                watchlist,
                 user: req.session.user
             });
         }
     } catch (error) {
         res.render('watchlist', { 
             message: `Error: ${error.message}`,
-            watchlist: [],
+            watchlist,
             user: req.session.user
         });
     }
@@ -122,7 +124,12 @@ async function getStockData(req, res) {
 
         res.json(stockData);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        // Send a more user-friendly error response
+        res.status(error.message.includes('not found') ? 404 : 500)
+           .json({ 
+               error: error.message,
+               symbol: req.query.symbol 
+           });
     }
 }
 
