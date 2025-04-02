@@ -100,36 +100,45 @@ async function addToWatchlist(req, res) {
 async function getStockData(req, res) {
     try {
         const { symbol } = req.query;
-        
-        // Initialize stockCache in session if it doesn't exist
+
         if (!req.session.stockCache) {
             req.session.stockCache = {};
         }
 
-        // Check if we have cached data and it's less than 5 minutes old
         const cachedData = req.session.stockCache[symbol];
         const now = Date.now();
-        if (cachedData && (now - cachedData.timestamp) < 300000) { // 5 minutes
+
+        if (cachedData && (now - cachedData.timestamp) < 300000 && !cachedData.error) { // 5 minutes for valid data
             return res.json(cachedData.data);
         }
 
         // If no cache or expired, fetch new data
-        const stockData = await getStockPrice(symbol);
-        
-        // Cache the new data with timestamp
-        req.session.stockCache[symbol] = {
-            data: stockData,
-            timestamp: now
-        };
+        try {
+            const stockData = await getStockPrice(symbol);
+            req.session.stockCache[symbol] = {
+                data: stockData,
+                timestamp: now,
+                error: null // Indicate no error
+            };
+            res.json(stockData);
 
-        res.json(stockData);
+        } catch (error) {
+            // Cache errors for 1 minute (example)
+            req.session.stockCache[symbol] = {
+                data: null,
+                timestamp: now,
+                error: error.message 
+            };
+            if (error.message.includes('not found')) {
+                 res.status(404).json({ error: error.message, symbol: req.query.symbol });
+            } else {
+                 res.status(500).json({ error: error.message, symbol: req.query.symbol });
+            }
+        }
+
     } catch (error) {
-        // Send a more user-friendly error response
-        res.status(error.message.includes('not found') ? 404 : 500)
-           .json({ 
-               error: error.message,
-               symbol: req.query.symbol 
-           });
+        // Handle unexpected errors
+        res.status(500).json({ error: "Internal server error", symbol: req.query.symbol });
     }
 }
 
