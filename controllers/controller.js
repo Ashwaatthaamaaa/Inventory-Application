@@ -94,6 +94,38 @@ async function addToWatchlist(req, res) {
     }
 }
 
+// Add a new route handler for getting stock data
+async function getStockData(req, res) {
+    try {
+        const { symbol } = req.query;
+        
+        // Initialize stockCache in session if it doesn't exist
+        if (!req.session.stockCache) {
+            req.session.stockCache = {};
+        }
+
+        // Check if we have cached data and it's less than 5 minutes old
+        const cachedData = req.session.stockCache[symbol];
+        const now = Date.now();
+        if (cachedData && (now - cachedData.timestamp) < 300000) { // 5 minutes
+            return res.json(cachedData.data);
+        }
+
+        // If no cache or expired, fetch new data
+        const stockData = await getStockPrice(symbol);
+        
+        // Cache the new data with timestamp
+        req.session.stockCache[symbol] = {
+            data: stockData,
+            timestamp: now
+        };
+
+        res.json(stockData);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}
+
 async function deleteFromWatchlist(req,res) {
 
     try{
@@ -128,5 +160,6 @@ module.exports = {
     handleLogout,
     getWatchlist,
     addToWatchlist,
-    deleteFromWatchlist
+    deleteFromWatchlist,
+    getStockData
 };
