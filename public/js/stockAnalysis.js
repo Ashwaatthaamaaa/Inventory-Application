@@ -55,6 +55,8 @@ const sampleStockData = {
     if (watchlistItems.length > 0) {
       selectStock(watchlistItems[0].dataset.symbol);
     }
+    // Check for messages passed via query parameters
+    handleMessages();
   });
   
   // Set up event listeners
@@ -124,6 +126,9 @@ const sampleStockData = {
     const detailPanel = document.getElementById('stock-detail');
     if (!detailPanel) return;
 
+    // Show loading state immediately
+    detailPanel.innerHTML = `<div class="loading-state"><p>Loading data for ${symbol}...</p></div>`;
+
     try {
         let stockData;
         
@@ -133,7 +138,15 @@ const sampleStockData = {
         } else {
             // Fetch from server (which handles session caching)
             const response = await fetch(`/api/stock-data?symbol=${symbol}`);
-            if (!response.ok) throw new Error('Failed to fetch stock data');
+            if (!response.ok) {
+                // Try to parse error message from server
+                let errorMsg = `Failed to fetch data (${response.status})`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch (e) { /* Ignore parsing error */ }
+                throw new Error(errorMsg);
+            }
             stockData = await response.json();
             
             // Store in local cache
@@ -147,9 +160,9 @@ const sampleStockData = {
             <div class="stock-detail-header">
                 <div>
                     <h2 class="stock-detail-title">${symbol} - ${stockData.name}</h2>
-                    <div class="stock-detail-price">$${stockData.price.toFixed(2)}</div>
+                    <div class="stock-detail-price">$${stockData.price?.toFixed(2) ?? 'N/A'}</div>
                     <span class="stock-change ${changeClass}">
-                        ${changeSign}${stockData.change.toFixed(2)} (${changeSign}${stockData.percentChange.toFixed(2)}%)
+                        ${changeSign}${stockData.change?.toFixed(2) ?? 'N/A'} (${changeSign}${stockData.percentChange?.toFixed(2) ?? 'N/A'}%)
                     </span>
                 </div>
             </div>
@@ -157,43 +170,39 @@ const sampleStockData = {
             <div class="stock-detail-metrics">
                 <div class="metric">
                     <div class="metric-title">Volume</div>
-                    <div class="metric-value">${stockData.volume}</div>
+                    <div class="metric-value">${stockData.volume ?? 'N/A'}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-title">Dividend</div>
-                    <div class="metric-value">$${stockData.dividend.toFixed(2)}</div>
+                    <div class="metric-value">$${stockData.dividend?.toFixed(2) ?? 'N/A'}</div>
                 </div>
             </div>
             
             <div class="chart-container">
-                <div class="chart-placeholder">Stock price chart will be displayed here</div>
+                <div class="chart-placeholder">Stock price chart (Placeholder)</div>
             </div>
             
             <div class="summary-section">
-                <div class="summary-title">Stock Summary</div>
-                <div class="summary-content">
-                    <p>Click 'Generate Summary' to get an AI-powered analysis of ${symbol}'s current performance and outlook.</p>
-                    <button id="generate-summary" class="button generate-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4"></path>
-                            <path d="M12 8h.01"></path>
-                        </svg>
-                        Generate Summary
-                    </button>
+                <div class="summary-title">AI Analysis</div>
+                <div class="summary-content" id="summary-content">
+                    ${stockData.analysis ? `<p>${stockData.analysis}</p>` : '<p>Analysis not available.</p>'}
                 </div>
             </div>
         `;
         
         detailPanel.innerHTML = detailHTML;
-        
-        // Re-attach event listener for generate button
-        const generateBtn = document.getElementById('generate-summary');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', generateSummary);
+
+        console.log(`Received data for ${symbol}:`, stockData);
+        console.log(`Analysis present:`, !!stockData.analysis);
+        if (stockData.analysis) {
+            console.log(`Analysis content:`, stockData.analysis);
         }
     } catch (error) {
-        detailPanel.innerHTML = `<p>Error loading stock data: ${error.message}</p>`;
+        console.error("Error updating stock details:", error);
+        detailPanel.innerHTML = `<div class="error-state">
+            <p>Error loading data for ${symbol}:</p>
+            <p>${error.message}</p>
+            </div>`;
     }
   }
   
@@ -221,5 +230,27 @@ const sampleStockData = {
         <p class="text-secondary" style="margin-top: 0.75rem; font-size: 0.75rem;">Note: This is a sample summary. The LLM-based analysis will be implemented in the future.</p>
       `;
     }, 1500);
+  }
+  
+  function handleMessages() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const message = urlParams.get('message');
+    const type = urlParams.get('type') || 'info'; // Default to info if type not specified
+
+    if (message) {
+        const messageContainer = document.getElementById('message-container');
+        if (messageContainer) {
+            messageContainer.textContent = decodeURIComponent(message);
+            messageContainer.className = `message message-${type}`; // Apply class based on type
+            messageContainer.style.display = 'block'; // Show the message
+
+            // Optional: Hide message after a few seconds
+            // setTimeout(() => {
+            //    messageContainer.style.display = 'none';
+            // }, 5000);
+        }
+        // Clean the URL to remove the message parameters after displaying
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }
   
