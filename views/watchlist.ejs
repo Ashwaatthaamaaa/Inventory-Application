@@ -14,18 +14,17 @@
     <div class="container">
         <header class="header">
             <h1>TrendHive Stock Analysis</h1>
-            <div>
-                <span>Welcome, <%= user.email %></span>
-                <a href="/logout" class="logout-link">Logout</a>
-            </div>
+            <% if (user) { %>
+                <div>
+                    <span>Welcome, <%= user.email %></span>
+                    <a href="/logout" class="logout-link">Logout</a>
+                </div>
+            <% } %>
         </header>
-        
-        <% if (message) { %>
-            <div class="message <%= message.includes('Error') ? 'message-error' : 'message-success' %>">
-                <%= message %>
-            </div>
-        <% } %>
-        
+
+        <!-- Message Display Area -->
+        <div id="message-container" style="display: none;" class="message"></div>
+
         <main class="main-grid">
             <aside class="watchlist-sidebar">
                 <div class="card">
@@ -46,15 +45,13 @@
                                         <span class="stock-symbol"><%= item.stock_symbol %></span>
                                         <form action="/delete-symbol" method="POST" style="margin-left: auto;">
                                             <input type="hidden" name="symbol" value="<%= item.stock_symbol %>">
-                                            <button type="submit" class="button button-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
-                                                ✕
-                                            </button>
+                                            <button type="submit" class="button button-danger button-small" title="Delete <%= item.stock_symbol %>">✕</button>
                                         </form>
                                     </div>
                                 </div>
                             <% }); %>
                         <% } else { %>
-                            <p>No stocks in watchlist</p>
+                            <p class="text-center text-secondary" style="padding: 1rem 0;">Your watchlist is empty.</p>
                         <% } %>
                     </div>
                 </div>
@@ -62,8 +59,9 @@
             
             <section class="detail-section">
                 <div class="card detail-panel" id="stock-detail">
-                    <div class="stock-detail-header">
-                        <h2 class="stock-detail-title">Select a stock to view details</h2>
+                    <!-- Content dynamically loaded by JS -->
+                    <div class="placeholder-state">
+                        <p>Select a stock from your watchlist to view details.</p>
                     </div>
                 </div>
             </section>
