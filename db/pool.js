@@ -1,5 +1,15 @@
-const { Pool } = require('pg');
+import 'dotenv/config';
+import pg from 'pg'; // Import default export from 'pg'
 
-module.exports = new Pool({
-    connectionString: "postgresql://lunge:291152@localhost:5432/inventory_db"
+const { Pool } = pg; // Destructure Pool from the default export
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL, // Use environment variable
+    // Add other pool configurations if needed (e.g., ssl)
+    // ssl: {
+    //   rejectUnauthorized: false // Example for Heroku/Render
+    // }
 });
+
+// Export the pool instance as default or named
+export default pool;
