@@ -1,6 +1,6 @@
 #! /usr/bin/env node
-const Pool = require('./pool');
-
+import 'dotenv/config';
+import pool from './pool.js';
 
 const SQL = `
 
@@ -30,16 +30,34 @@ CREATE TABLE IF NOT EXISTS watchlist (
 CREATE INDEX IF NOT EXISTS idx_watchlist_user_id ON watchlist (user_id);
 `;
 
-async function main(params) {
-    console.log(Pool);
-    const client = await Pool.connect();
+async function createTables() {
+    const client = await pool.connect();
     try {
-        await client.query(SQL);
-    } catch (error) {
-        console.error('Error executing query', error.stack);
+        await client.query(`
+            DROP TABLE IF EXISTS watchlist; 
+            DROP TABLE IF EXISTS users;
+            
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS watchlist (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                stock_symbol VARCHAR(10) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, stock_symbol)
+            );
+        `);
+        console.log('Tables dropped (if existed) and created successfully');
+    } catch (err) {
+        console.error('Error creating tables:', err);
     } finally {
         client.release();
+        pool.end(); // Close pool after script finishes
     }
 }
 
-main();
+createTables();
