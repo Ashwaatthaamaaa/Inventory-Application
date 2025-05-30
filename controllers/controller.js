@@ -1,8 +1,9 @@
-const { addUser, verifyUser, addSymbol, fetchWatchlist,deleteSymbol } = require('../db/queries');
-const { getStockPrice } = require('../utils/api');
+import { addUser, verifyUser, addSymbol, fetchWatchlist, deleteSymbol } from '../db/queries.js';
+import { getStockPrice } from '../utils/api.js';
+import { generateStockAnalysis } from '../utils/llm_api.js';
 
 // Login page
-function getLoginPage(req, res) {
+export function getLoginPage(req, res) {
     if (req.session.user) {
         return res.redirect('/watchlist');
     }
@@ -10,31 +11,29 @@ function getLoginPage(req, res) {
 }
 
 // Handle login
-async function handleLogin(req, res) {
+export async function handleLogin(req, res) {
     try {
         const { email } = req.body;
+        if (!email) {
+             return res.render('login', { message: 'Email is required.' });
+        }
         let userId = await verifyUser(email);
-        
         if (!userId) {
             userId = await addUser(email);
+             if (!userId) {
+                throw new Error("Failed to create or find user.");
+            }
         }
-        
-        // Set session data
-        req.session.user = {
-            id: userId,
-            email: email
-        };
-        
+        req.session.user = { id: userId, email: email };
         res.redirect('/watchlist');
     } catch (error) {
-        res.render('login', { 
-            message: `Error: ${error.message}` 
-        });
+        console.error("Login Error:", error);
+        res.render('login', { message: `Login failed: ${error.message}` });
     }
 }
 
 // Logout
-function handleLogout(req, res) {
+export function handleLogout(req, res) {
     req.session.destroy((err) => {
         if (err) {
             console.error('Error destroying session:', err);
@@ -44,17 +43,18 @@ function handleLogout(req, res) {
 }
 
 // Protected watchlist page
-async function getWatchlist(req, res) {
+export async function getWatchlist(req, res) {
     try {
-        const watchlist = await fetchWatchlist(req.session.user.id);
-        res.render('watchlist', { 
-            watchlist,
+        const watchlistData = await fetchWatchlist(req.session.user.id);
+        res.render('watchlist', {
+            watchlist: watchlistData,
             user: req.session.user,
-            message: null 
+            message: req.query.message || null
         });
     } catch (error) {
-        res.render('watchlist', { 
-            message: `Error: ${error.message}`,
+        console.error("Error fetching watchlist:", error);
+        res.render('watchlist', {
+            message: `Error fetching watchlist: ${error.message}`,
             watchlist: [],
             user: req.session.user
         });
@@ -62,120 +62,97 @@ async function getWatchlist(req, res) {
 }
 
 // Protected add symbol route
-async function addToWatchlist(req, res) {
-    let watchlist = await fetchWatchlist(req.session.user.id);
-
+export async function addToWatchlist(req, res) {
+    let message = '';
+    let messageType = 'error';
     try {
         const { symbol } = req.body;
-        
-        // Verify stock exists
-        const stockData = await getStockPrice(symbol);
-        
-        if (stockData) {
-            await addSymbol(req.session.user.id, symbol);
-            
-            watchlist = await fetchWatchlist(req.session.user.id);
-            res.render('watchlist', { 
-                message: `Added ${symbol} to watchlist`,
-                watchlist,
-                user: req.session.user
-            });
-        } else {
-            res.render('watchlist', { 
-                message: `Error: Stock symbol ${symbol} not found`,
-                watchlist,
-                user: req.session.user
-            });
-        }
+        if (!symbol) throw new Error("Stock symbol is required.");
+
+        const upperSymbol = symbol.toUpperCase().trim();
+
+        await getStockPrice(upperSymbol);
+
+        const added = await addSymbol(req.session.user.id, upperSymbol);
+        message = added ? `Added ${upperSymbol} to watchlist.` : `${upperSymbol} is already in your watchlist.`;
+        messageType = added ? 'success' : 'info';
+
     } catch (error) {
-        res.render('watchlist', { 
-            message: `Error: ${error.message}`,
-            watchlist,
-            user: req.session.user
-        });
+        console.error("Error adding symbol:", error);
+        message = error.message;
     }
+    res.redirect(`/watchlist?message=${encodeURIComponent(message)}&type=${messageType}`);
 }
 
-// Add a new route handler for getting stock data
-async function getStockData(req, res) {
+// Delete Symbol
+export async function deleteFromWatchlist(req, res) {
+     let message = '';
+     let messageType = 'error';
+    try {
+        const { symbol } = req.body;
+         if (!symbol) throw new Error("Symbol is required for deletion.");
+
+        const deleted = await deleteSymbol(req.session.user.id, symbol);
+        message = deleted ? `Successfully deleted ${symbol}` : `Could not find ${symbol} in watchlist.`;
+        messageType = deleted ? 'success' : 'error';
+
+    } catch (error) {
+        console.error("Error deleting symbol:", error);
+        message = `Error deleting symbol: ${error.message}`;
+    }
+     res.redirect(`/watchlist?message=${encodeURIComponent(message)}&type=${messageType}`);
+}
+
+// API endpoint for getting stock data (used by frontend JS)
+export async function getStockData(req, res) {
     try {
         const { symbol } = req.query;
+        if (!symbol) return res.status(400).json({ error: 'Symbol query parameter is required' });
 
-        if (!req.session.stockCache) {
-            req.session.stockCache = {};
+        const upperSymbol = symbol.toUpperCase().trim();
+
+        if (!process.env.API_KEY) {
+            console.error('API key is not set. Ensure you have required dotenv.config() in your main application file.');
+            return res.status(500).json({ error: 'API key is missing. Cannot proceed with the request.' });
         }
 
-        const cachedData = req.session.stockCache[symbol];
-        const now = Date.now();
+        req.session.stockCache = req.session.stockCache || {};
 
-        if (cachedData && (now - cachedData.timestamp) < 300000 && !cachedData.error) { // 5 minutes for valid data
+        const cachedData = req.session.stockCache[upperSymbol];
+        const now = Date.now();
+        if (cachedData && (now - cachedData.timestamp) < 300000) {
             return res.json(cachedData.data);
         }
 
-        // If no cache or expired, fetch new data
-        try {
-            const stockData = await getStockPrice(symbol);
-            req.session.stockCache[symbol] = {
-                data: stockData,
-                timestamp: now,
-                error: null // Indicate no error
-            };
-            res.json(stockData);
+        const stockData = await getStockPrice(upperSymbol);
 
-        } catch (error) {
-            // Cache errors for 1 minute (example)
-            req.session.stockCache[symbol] = {
-                data: null,
-                timestamp: now,
-                error: error.message 
-            };
-            if (error.message.includes('not found')) {
-                 res.status(404).json({ error: error.message, symbol: req.query.symbol });
-            } else {
-                 res.status(500).json({ error: error.message, symbol: req.query.symbol });
-            }
+        try {
+            console.log(`Attempting LLM analysis for ${upperSymbol}...`);
+            stockData.analysis = await generateStockAnalysis({
+                ...stockData,
+                symbol: upperSymbol
+            });
+            console.log(`Analysis received for ${upperSymbol}:`, stockData.analysis);
+        } catch (llmError) {
+            console.warn(`LLM analysis failed for ${upperSymbol}:`, llmError.message);
+            console.error('Full LLM error:', llmError);
+            stockData.analysis = "Could not generate analysis at this time.";
         }
 
+        req.session.stockCache[upperSymbol] = {
+            data: stockData,
+            timestamp: now
+        };
+
+        res.json(stockData);
+
     } catch (error) {
-        // Handle unexpected errors
-        res.status(500).json({ error: "Internal server error", symbol: req.query.symbol });
+        console.error(`Error in getStockData for ${req.query.symbol}:`, error);
+        res.status(error.message.includes('not found') ? 404 : 500)
+           .json({
+               error: error.message,
+               symbol: req.query.symbol
+           });
     }
 }
 
-async function deleteFromWatchlist(req,res) {
-
-    try{
-        const {symbol} = req.body;
-
-        await deleteSymbol(req.session.user.id,symbol);
-
-        const watchlist = await fetchWatchlist(req.session.user.id);
-
-        res.render('watchlist',{
-            message: `Successfully deleted ${symbol} from watchlist`,
-            watchlist,
-            user:req.session.user
-            }
-        )
-    }catch(err){
-        const watchlist = await fetchWatchlist(req.session.user.id);
-
-        res.render('watchlist',{
-            message: `Error: ${error.message}`,
-            watchlist,
-            user:req.session.user
-            }
-        )
-    }
-    
-}
-
-module.exports = {
-    getLoginPage,
-    handleLogin,
-    handleLogout,
-    getWatchlist,
-    addToWatchlist,
-    deleteFromWatchlist,
-    getStockData
-};
