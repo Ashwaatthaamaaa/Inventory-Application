@@ -1,6 +1,6 @@
-const pool = require('./pool');
+import pool from './pool.js';
 
-async function addUser(email) {
+export async function addUser(email) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -13,6 +13,10 @@ async function addUser(email) {
         `, [email]);
 
         await client.query('COMMIT');
+        if (userRes.rowCount === 0) {
+            const existingUser = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+            return existingUser.rows[0]?.id || null;
+        }
         return userRes.rows[0]?.id || null;
 
     } catch (err) {
@@ -24,7 +28,7 @@ async function addUser(email) {
     }
 }
 
-async function verifyUser(email) {
+export async function verifyUser(email) {
     const client = await pool.connect();
     try {
         const result = await client.query(
@@ -40,7 +44,7 @@ async function verifyUser(email) {
     }
 }
 
-async function addSymbol(userId, symbol) {
+export async function addSymbol(userId, symbol) {
     if (!userId) throw new Error('User must be logged in');
     
     const client = await pool.connect();
@@ -55,12 +59,8 @@ async function addSymbol(userId, symbol) {
             RETURNING id
         `, [userId, symbol]);
 
-        if (watchlistRes.rowCount === 0) {
-            throw new Error('DUPLICATE_SYMBOL');
-        }
-
         await client.query('COMMIT');
-        return true;
+        return watchlistRes.rowCount > 0;
 
     } catch (err) {
         await client.query('ROLLBACK');
@@ -71,15 +71,14 @@ async function addSymbol(userId, symbol) {
     }
 }
 
-async function fetchWatchlist(userId) {
+export async function fetchWatchlist(userId) {
     if (!userId) throw new Error('User must be logged in');
 
     const client = await pool.connect();
     try {
         const result = await client.query(`
-            SELECT stock_symbol 
-            FROM watchlist 
-            WHERE user_id = $1
+            SELECT stock_symbol FROM watchlist WHERE user_id = $1
+            ORDER BY stock_symbol DESC
         `, [userId]);
         return result.rows;
     } catch (err) {
@@ -90,32 +89,25 @@ async function fetchWatchlist(userId) {
     }
 }
 
-async function deleteSymbol(userId,symbol) {
+export async function deleteSymbol(userId, symbol) {
+    if (!userId || !symbol) throw new Error('User ID and symbol required');
     const client = await pool.connect();
-    try{
+    try {
         await client.query('BEGIN');
-
-        let deletedSymbols = await client.query('DELETE FROM watchlist WHERE user_id=$1 AND stock_symbol=$2 RETURNING id',[userId,symbol]);
-
-        if(deletedSymbols.rowCount == 0) {
-            throw new Error(`CANNOT DELETE ${symbol}`)
+        const deletedSymbols = await client.query(
+            'DELETE FROM watchlist WHERE user_id=$1 AND stock_symbol=$2 RETURNING id',
+            [userId, symbol]
+        );
+        if (deletedSymbols.rowCount === 0) {
+            return false;
         }
-
         await client.query('COMMIT');
-    }catch(err){
+        return true;
+    } catch (err) {
         await client.query('ROLLBACK');
         console.error('Error deleting symbol:', err);
         throw err;
     } finally {
         client.release();
     }
-
 }
-
-module.exports = {
-    addUser,
-    verifyUser,
-    addSymbol,
-    fetchWatchlist,
-    deleteSymbol
-};
