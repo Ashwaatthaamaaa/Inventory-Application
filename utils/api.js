@@ -1,4 +1,4 @@
-     // utils/api.js
+// utils/api.js
      import 'dotenv/config';
      import axios from 'axios';
      const API_KEY      = process.env.API_KEY;
@@ -86,7 +86,3 @@ async function getStockPrice(symbol) {
 }
 
 export { getStockPrice };
-
-// Remove the test call as it can cause issues
-getStockPrice('MSFT');
-

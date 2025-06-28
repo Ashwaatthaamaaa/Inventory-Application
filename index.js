@@ -1,6 +1,6 @@
 import 'dotenv/config';
 console.log('Checking environment variables:');
-console.log('API_KEY (from code check):', process.env.api_key ? 'Found (value: ' + process.env.api_key + ')' : 'Not found');
+console.log('API_KEY (from code check):', process.env.API_KEY ? 'Found (value: ' + process.env.API_KEY + ')' : 'Not found');
 console.log('Full process.env dump for debugging:', JSON.stringify(process.env, null, 2));
 
 import express from 'express';
